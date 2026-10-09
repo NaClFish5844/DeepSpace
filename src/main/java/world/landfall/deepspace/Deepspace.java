@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.item.CreativeModeTab;
 import net.minecraft.world.level.block.FlowerPotBlock;
 import net.neoforged.api.distmarker.Dist;
@@ -28,15 +29,17 @@ import world.landfall.deepspace.render.SpaceRenderSystem;
 import world.landfall.deepspace.worldgen.ModChunkGenerators;
 import world.landfall.deepspace.worldgen.ModFeatures;
 
+import javax.annotation.Nullable;
 import java.util.Objects;
 import java.util.function.Supplier;
 
 @Mod(Deepspace.MODID)
 public class Deepspace {
-    // Define mod id in a common place for everything to reference
     public static final String MODID = "deepspace";
-    // Directly reference a slf4j logger
-    private static final Logger LOGGER = LogUtils.getLogger();
+    public static final Logger LOGGER = LogUtils.getLogger();
+    @Nullable public static ResourceManager RESOURCE_MANAGER;
+
+
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
     public static final Supplier<CreativeModeTab> TAB = CREATIVE_MODE_TABS.register("deepspace", () -> CreativeModeTab.builder()
             .displayItems((params, output) -> {
