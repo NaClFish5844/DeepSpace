@@ -56,18 +56,6 @@ public final class DatapackChecker {
             FileType.galaxy,             propertyKeyNames(GalaxyData.class)
     );
 
-    public static ParsedJson parseFileType(ResourceLocation id, DatapackProvider.ProvidedJson providedJson) {
-        JsonElement json = providedJson.json();
-        if (json == null || !json.isJsonObject()) { return new ParsedJson(id, FileType.invalid, null); }
-
-        JsonObject root = json.getAsJsonObject();
-        if ( !isString("type", root) ) { return new ParsedJson(id, FileType.invalid, null); }
-
-        if ( !checkStringInEnum("type", root, FileType.class) ) { return new ParsedJson(id, FileType.invalid, null); }
-
-        return new ParsedJson(id, FileType.of(root.get("type").getAsString()), root);
-    }
-    /** 子块只有两种类型；各算一次字段名集合，所有子块共用 */
     private static final Set<String> ORBIT_KEYS = propertyKeyNames(OrbitData.class);
     private static final Set<String> DECORATION_KEYS = propertyKeyNames(PlanetData.DecorationData.class);
 
@@ -89,11 +77,28 @@ public final class DatapackChecker {
      * <p>
      * 只做单文件内的判断；引用有效性、加载次序一律交给 Loader —— 那里有全量数据，判断天然更准。
      */
-    public static ParsedJson check(ResourceLocation id, DatapackProvider.ProvidedJson providedJson) {
-        ParsedJson parsed = parseFileType(id, providedJson);
-        if (parsed.root() == null) { return null; }
 
-        boolean pass = switch (parsed.type()) {
+    public static ParsedJson parseFileType(ResourceLocation id, DatapackProvider.ProvidedJson providedJson) {
+        JsonElement json = providedJson.json();
+        if (json == null || !json.isJsonObject()) { return new ParsedJson(id, FileType.invalid, null); }
+
+        JsonObject root = json.getAsJsonObject();
+        if ( !isString("type", root) ) { return new ParsedJson(id, FileType.invalid, null); }
+
+        if ( !checkStringInEnum("type", root, FileType.class) ) { return new ParsedJson(id, FileType.invalid, null); }
+
+        return new ParsedJson(id, FileType.of(root.get("type").getAsString()), root);
+    }
+
+    /**
+     * 单文件校验：输入是**已经分好类**的 ParsedJson，返回校验结果。
+     * <p>
+     * 分类交给 parseFileType，引用有效性与加载次序交给 Loader —— 这里只管单文件内部的事。
+     */
+    public static CheckResult check(ParsedJson parsed) {
+        if (parsed.root() == null) { return CheckResult.unusable(); }
+
+        return CheckResult.of(switch (parsed.type()) {
             case star               -> checkStar(parsed);
             case planet             -> checkPlanet(parsed);
             case teleporter         -> checkTeleporter(parsed);
@@ -101,9 +106,7 @@ public final class DatapackChecker {
             case ring_world_section -> checkRingWorldSection(parsed);
             case galaxy             -> checkGalaxy(parsed);
             case invalid            -> false;
-        };
-
-        return pass ? parsed : null;
+        });
     }
 
     private static boolean checkStar(ParsedJson parsed) {
@@ -239,6 +242,8 @@ public final class DatapackChecker {
         }
         return pass;
     }
+    // 需要一个静默路径？
+    // 实际上 sablespawner里也遇到过类似的情况 最后被忽略了
     private static boolean isStringElement(JsonElement element) {
         return element != null && element.isJsonPrimitive() && element.getAsJsonPrimitive().isString();
     }
@@ -246,25 +251,6 @@ public final class DatapackChecker {
         return element != null && element.isJsonPrimitive() && element.getAsJsonPrimitive().isNumber();
     }
 
-    public static boolean checkNumberInRange( String key, JsonObject root, Number min, Number max ) {
-        JsonElement element = root.get(key);
-
-        if ( !isNumber( key, element ) ) { return false; }
-
-        double value = element.getAsJsonPrimitive().getAsNumber().doubleValue();
-        double upperBound = max.doubleValue();
-        double lowerBound = min.doubleValue();
-
-        if ( Double.isNaN(value) ) {
-            getLogger().warn("[{}] 值为 NaN | [{}] value is NaN", key, key);
-            return false;
-        }
-        if ( value < lowerBound || value > upperBound ) {
-            getLogger().warn("[{}] 超出范围 | [{}] out of range", key, key);
-            return false;
-        }
-        return true;
-    }
     public static boolean checkStringInEnum( String key, JsonObject root, Class< ? extends Enum<?> > enumClass ) {
         JsonElement element = root.get(key);
 
@@ -290,7 +276,6 @@ public final class DatapackChecker {
         }
         return true;
     }
-
     public static Set<String> extractStringArrList(JsonElement element ) {
         if ( element == null || !element.isJsonArray() ) { return new HashSet<>(); }
 
@@ -373,6 +358,8 @@ public final class DatapackChecker {
         return isBoolean(key,element);
     }
 
+
+    private static final Set<String> ENUM_SENTINELS = Set.of("invalid", "none", "unknown", "undefined");
     private static Set<String> enumNames(Class<? extends Enum<?>> enumClass) {
         Set<String> names = new HashSet<>();
         for (Enum<?> constant : enumClass.getEnumConstants()) { names.add(constant.name()); }
@@ -380,21 +367,19 @@ public final class DatapackChecker {
     }
     private static Set<String> enumNamesIgnoreFlag(Class<? extends Enum<?>> enumClass) {
         Set<String> names = enumNames(enumClass);
-        names.remove("invalid");
+        names.removeAll(ENUM_SENTINELS);
 
         return names;
     }
 
-
-
-    public record CheckResult(
-            boolean isTopLevelKeysValid,
-            boolean isAllyPropertyValid,
-            boolean isEnemyPropertyValid,
-            boolean isPrefabPropertyValid
-    ) {
-        public boolean isAllFalse() {
-            return !( isTopLevelKeysValid || isAllyPropertyValid || isEnemyPropertyValid || isPrefabPropertyValid );
-        }
+    /**
+     * 校验结果。当前只是占位：一个总的是非位，够 check 跑通就行。
+     * <p>
+     * 以后按 SableSpawner 的做法展开成分项（类型 / 必填 / 跨字段 / 子块），
+     * Loader 就能只挑其中几项当硬门槛，其余宽容放行 —— 尽量把数据救回来。
+     */
+    public record CheckResult(boolean isClean) {
+        public static CheckResult of(boolean clean) { return new CheckResult(clean); }
+        public static CheckResult unusable() { return new CheckResult(false); }
     }
 }
