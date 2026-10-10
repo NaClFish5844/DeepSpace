@@ -19,8 +19,8 @@ import static world.landfall.deepspace.util.AccessUtil.*;
 /**
  * 数据域事件入口：注册数据包监听器。
  * <p>
- * 目前只读取与统计，不落地注册表 —— 旧的 PlanetDataReloadListener 仍在独立运行，两条链路互不干扰。
- * 数据模型（spacedata）与校验（Checker）就绪后，再在这里接上"转对象 → 替换注册表"。
+ * /reload 时在后台线程走完「取源 → 一轮加载 → 二轮过滤 → 落地到 DatapackManager」，主线程不碰 IO。
+ * 旧的 PlanetDataReloadListener 仍在独立运行，两条链路互不干扰。
  */
 @EventBusSubscriber(modid = Deepspace.MODID)
 public final class SpaceDataEvents {
@@ -45,12 +45,12 @@ public final class SpaceDataEvents {
                     .thenCompose(stage::wait);
         }
 
-        /** 后台线程：注入资源管理器，取两个源并统计 —— 主线程不碰 IO */
+        /** 后台线程：注入资源管理器 → 覆盖审计 → 触发一轮加载与二轮过滤，落地到 Manager */
         private static void resolve(ResourceManager resourceManager) {
             setResourceManager(resourceManager);
 
+            // 覆盖审计：同一 ID 被多个包提供时，说明谁覆盖了谁
             Map<ResourceLocation, List<DatapackProvider.ProvidedJson>> all = DatapackProvider.getAllSpaceData();
-            Map<ResourceLocation, DatapackProvider.ProvidedJson> effective = DatapackProvider.getEffectiveSpaceData();
 
             long overwritten = all.values().stream().filter(sources -> sources.size() > 1).count();
             long unreadable = all.values().stream()
@@ -58,11 +58,15 @@ public final class SpaceDataEvents {
                     .filter(provided -> provided.json() == null)
                     .count();
 
-            getLogger().info(
-                    "deepspace 数据：{} 个 ID（生效 {}，被覆盖 {}，读取失败 {}） | deepspace data: {} ids ({} effective, {} overwritten, {} unreadable)",
-                    all.size(), effective.size(), overwritten, unreadable,
-                    all.size(), effective.size(), overwritten, unreadable
-            );
+            if (overwritten > 0 || unreadable > 0) {
+                getLogger().info(
+                        "空间数据源：{} 个 ID（被覆盖 {}，读取失败 {}） | space data sources: {} ids ({} overwritten, {} unreadable)",
+                        all.size(), overwritten, unreadable,
+                        all.size(), overwritten, unreadable
+                );
+            }
+
+            getDatapackManager().reloadDatapack();
         }
     }
 }

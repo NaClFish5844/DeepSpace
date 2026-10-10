@@ -3,6 +3,7 @@ package world.landfall.deepspace.datapack.spacedata.body.ringworld;
 import com.google.gson.annotations.SerializedName;
 import lombok.Getter;
 import lombok.Setter;
+import org.joml.Vector3d;
 import world.landfall.deepspace.datapack.spacedata.body.AbstractCelestialBodyData;
 
 import java.util.ArrayList;

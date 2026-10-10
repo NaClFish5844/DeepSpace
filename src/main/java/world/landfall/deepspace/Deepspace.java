@@ -6,7 +6,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.item.CreativeModeTab;
-import net.minecraft.world.level.block.FlowerPotBlock;
 import net.neoforged.api.distmarker.Dist;
 import net.neoforged.bus.api.IEventBus;
 import net.neoforged.bus.api.SubscribeEvent;
@@ -23,6 +22,7 @@ import net.neoforged.neoforge.registries.DeferredRegister;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
 
+import world.landfall.deepspace.datapack.DatapackManager;
 import world.landfall.deepspace.dimension.SpaceDimensionType;
 import world.landfall.deepspace.planet.PlanetRegistry;
 import world.landfall.deepspace.render.SpaceRenderSystem;
@@ -38,6 +38,7 @@ public class Deepspace {
     public static final String MODID = "deepspace";
     public static final Logger LOGGER = LogUtils.getLogger();
     @Nullable public static ResourceManager RESOURCE_MANAGER;
+    public static final DatapackManager DATAPACK_MANAGER = DatapackManager.INSTANCE;
 
 
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);

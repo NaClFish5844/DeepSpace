@@ -4,7 +4,8 @@ import com.google.gson.annotations.SerializedName;
 import lombok.Getter;
 import lombok.Setter;
 import org.joml.Vector2i;
-import world.landfall.deepspace.datapack.spacedata.OrbitData;
+import org.joml.Vector3d;
+import world.landfall.deepspace.datapack.spacedata.OrbiterData;
 
 import java.util.ArrayList;
 
@@ -41,6 +42,7 @@ public class PlanetData extends AbstractCelestialBodyData {
         }
     }
 
+    @SerializedName("size") private Vector3d size;
     @SerializedName("dimension") private String dimension;
     @SerializedName("landing_area") private Vector2i landingArea;
     @SerializedName("description") private String description;
@@ -51,8 +53,7 @@ public class PlanetData extends AbstractCelestialBodyData {
     @SerializedName("texture_generation_detail") private String textureGenerationDetail;
 
     @SerializedName("decorations") private ArrayList<DecorationData> decorations;
-    // 卫星与星系里的环绕关系同构，共用 OrbitData
-    @SerializedName("moons") private ArrayList<OrbitData> moons;
+    @SerializedName("moons") private ArrayList<OrbiterData> moons;
 
     private PlanetData() {
         super();

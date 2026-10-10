@@ -20,6 +20,7 @@ public class TeleporterData extends AbstractCelestialBodyData {
 
     @SerializedName("teleporter_type") private TeleporterType teleporterType;
     @SerializedName("teleport_distance") private int teleportDistance;
+    @SerializedName("size") private double size;
 
     private TeleporterData() {
         super();
@@ -27,6 +28,7 @@ public class TeleporterData extends AbstractCelestialBodyData {
 
         this.teleporterType = TeleporterType.invalid;
         this.teleportDistance = 128;
+        this.size = 1.0D;
     }
     public static TeleporterData ofDefault() {
         return new TeleporterData();

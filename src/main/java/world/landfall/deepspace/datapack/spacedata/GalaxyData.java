@@ -1,8 +1,10 @@
 package world.landfall.deepspace.datapack.spacedata;
 
 import com.google.gson.annotations.SerializedName;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import lombok.Getter;
 import lombok.Setter;
+import net.minecraft.resources.ResourceLocation;
 import org.joml.Vector3i;
 
 import java.util.ArrayList;
@@ -17,12 +19,13 @@ public class GalaxyData {
     @SerializedName("name") private String name;
     @SerializedName("mass_center") private Vector3i mass_center;
 
-    @SerializedName("central_bodies") private ArrayList<OrbitData> centralBodies;
-    @SerializedName("orbiters") private ArrayList<OrbitData> orbiters;
-    @SerializedName("teleporters") private ArrayList<OrbitData> teleporters;
+    @SerializedName("central_bodies") private ArrayList<OrbiterData> centralBodies;
+    @SerializedName("orbiters") private ArrayList<OrbiterData> orbiters;
+    @SerializedName("teleporters") private ArrayList<GalaxyTeleporterData> teleporters;
 
-    private transient String galaxyId;
     private transient String packName;
+    private transient ObjectList<String> connectedGalaxies;
+    private transient ResourceLocation dataId;
 
     private GalaxyData() {
         this.type = TYPE;
@@ -32,8 +35,8 @@ public class GalaxyData {
         this.centralBodies = new ArrayList<>();
         this.orbiters = new ArrayList<>();
         this.teleporters = new ArrayList<>();
-        this.galaxyId = "";
         this.packName = "";
+        this.dataId = null;
     }
     public static GalaxyData ofDefault() {
         return new GalaxyData();

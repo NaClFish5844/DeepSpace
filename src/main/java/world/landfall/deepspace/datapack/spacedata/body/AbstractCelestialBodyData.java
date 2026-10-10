@@ -3,7 +3,7 @@ package world.landfall.deepspace.datapack.spacedata.body;
 import com.google.gson.annotations.SerializedName;
 import lombok.Getter;
 import lombok.Setter;
-import org.joml.Vector3d;
+import net.minecraft.resources.ResourceLocation;
 
 /**
  * 抽象天体：所有可被星系引用的天体共有的字段。
@@ -20,6 +20,7 @@ public abstract class AbstractCelestialBodyData {
         star,
         planet,
         teleporter,
+        ring_world,
         ring_world_section,
         invalid
     }
@@ -27,16 +28,17 @@ public abstract class AbstractCelestialBodyData {
     @SerializedName("name") private String name;
     @SerializedName("id") private String id;
     @SerializedName("type") private CelestialBodyType type;
-    @SerializedName("size") private Vector3d size;
 
     private transient String packName;
+    /** 完整身份（文件位置，如 deepspace:alpha/sol）；id 只是短名。加载时注入，不参与 JSON */
+    private transient ResourceLocation dataId;
 
     protected AbstractCelestialBodyData() {
         this.name = "";
         this.id = "";
         this.type = CelestialBodyType.invalid;
-        this.size = new Vector3d(1.0D, 1.0D, 1.0D);
         this.packName = "";
+        this.dataId = null;
     }
     protected void copyBaseFrom(AbstractCelestialBodyData base) {
         if (base == null) { return; }
@@ -44,7 +46,7 @@ public abstract class AbstractCelestialBodyData {
         this.name = base.name;
         this.id = base.id;
         this.type = base.type;
-        this.size = base.size;
         this.packName = base.packName;
+        this.dataId = base.dataId;
     }
 }

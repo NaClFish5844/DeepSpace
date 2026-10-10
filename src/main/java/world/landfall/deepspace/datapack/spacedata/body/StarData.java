@@ -5,6 +5,7 @@ import com.google.gson.JsonNull;
 import com.google.gson.annotations.SerializedName;
 import lombok.Getter;
 import lombok.Setter;
+import org.joml.Vector3d;
 
 /**
  * 恒星：星系里的发光中心天体。
@@ -14,6 +15,7 @@ import lombok.Setter;
 @Getter @Setter
 public class StarData extends AbstractCelestialBodyData {
 
+    @SerializedName("size") private Vector3d size;
     @SerializedName("hurt_radius") private double hurtRadius;
     @SerializedName("spectral_class") private String spectralClass;
     @SerializedName("color") private JsonElement color;

@@ -3,19 +3,20 @@ package world.landfall.deepspace.datapack.spacedata.body.ringworld;
 import com.google.gson.annotations.SerializedName;
 import lombok.Getter;
 import lombok.Setter;
+import world.landfall.deepspace.datapack.spacedata.body.AbstractCelestialBodyData;
 
 /**
  * 环世界体：一个完整的环，由若干区段拼成。
  * <p>
- * 注意：它【不继承】抽象天体 —— 环世界是天体的「容器」，不是天体本身。
- * 因此既没有 size（体积由各区段给出），也不自己写位置（位置由引用它的星系给出）。
+ * 它继承抽象天体，因此 name / id / type 这些共性字段都由基类提供；
+ * 但它【没有 size】—— 体积由各区段给出 —— 也不自己写位置（位置由引用它的星系给出）。
  * <p>
  * 区段不由本文件声明：环在 ringworlds/&lt;环名&gt;/ 下独占一个目录，
  * 其中与目录同名的文件是本体，其余文件一律视为区段；
  * 区段按各自的 index 升序取前 n 个（n 由 scale 决定），不足则循环重复补齐。
  */
 @Getter @Setter
-public class RingWorldBodyData {
+public class RingWorldBodyData extends AbstractCelestialBodyData {
 
     /**
      * 规模：决定段数与模型面数。
@@ -46,22 +47,15 @@ public class RingWorldBodyData {
 
     public static final String TYPE = "ring_world";
 
-    @SerializedName("type") private String type;
-    @SerializedName("id") private String id;
-    @SerializedName("name") private String name;
     @SerializedName("scale") private RingWorldScale scale;
     @SerializedName("orbit_radius") private int orbitRadius;
 
-    // 运行时注入的来源包名，用于覆盖审计
-    private transient String packName;
-
     private RingWorldBodyData() {
-        this.type = TYPE;
-        this.id = "";
-        this.name = "";
+        super();
+        setType(CelestialBodyType.ring_world);
+
         this.scale = RingWorldScale.medium;
         this.orbitRadius = 0;
-        this.packName = "";
     }
 
     public static RingWorldBodyData ofDefault() {

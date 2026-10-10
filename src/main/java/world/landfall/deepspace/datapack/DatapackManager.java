@@ -1,20 +1,12 @@
 package world.landfall.deepspace.datapack;
 
-import world.landfall.deepspace.Deepspace;
-import world.landfall.deepspace.datapack.property.config.DefaultConfig;
-import world.landfall.deepspace.datapack.property.sublevel.*;
-import world.landfall.deepspace.datapack.query.PropertyQuery;
-import world.landfall.deepspace.datapack.query.WorldConfigQuery;
+import world.landfall.deepspace.datapack.query.CelestialBodyQuery;
+import world.landfall.deepspace.datapack.query.GalaxyQuery;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
-import it.unimi.dsi.fastutil.objects.ObjectArraySet;
-import it.unimi.dsi.fastutil.objects.ObjectSet;
 import lombok.Getter;
-import net.neoforged.fml.ModList;
-import net.neoforged.fml.loading.FMLPaths;
-import org.slf4j.Logger;
-
-import javax.annotation.Nullable;
-import java.nio.file.Path;
+import net.minecraft.resources.ResourceLocation;
+import world.landfall.deepspace.datapack.spacedata.GalaxyData;
+import world.landfall.deepspace.datapack.spacedata.body.AbstractCelestialBodyData;
 
 import static world.landfall.deepspace.util.AccessUtil.*;
 
@@ -23,53 +15,36 @@ import static world.landfall.deepspace.util.AccessUtil.*;
 public class DatapackManager {
     public static final DatapackManager INSTANCE = new DatapackManager();
 
-    public enum BlueprintSourceFileLocation {
-        datapack,
-        folder,
-        invalid
-    }
-    public enum BlueprintSourceModId {
-        sable_schematic_api,
-        invalid
-    }
-
-    private final ObjectSet<DatapackSource> DATAPACK_REGISTRY = new ObjectArraySet<>();
-    private final Object2ObjectOpenHashMap<PropertyKey, AbstractSchematicProperty> PROPERTY_MANAGER = new Object2ObjectOpenHashMap<>();
-    private final Object2ObjectOpenHashMap<String, DefaultConfig> WORLDCONFIG_MANAGER = new Object2ObjectOpenHashMap<>();
-    @Nullable private DefaultConfig DEFAULT_CONFIG = null;
+    private final Object2ObjectOpenHashMap<ResourceLocation, AbstractCelestialBodyData> CELESTIAL_BODY_MANAGER = new Object2ObjectOpenHashMap<>();
+    private final Object2ObjectOpenHashMap<ResourceLocation, GalaxyData> GALAXY_MANAGER = new Object2ObjectOpenHashMap<>();
 
     public void reloadDatapack() {
-        DATAPACK_REGISTRY.clear();
-        PROPERTY_MANAGER.clear();
-        WORLDCONFIG_MANAGER.clear();
+        CELESTIAL_BODY_MANAGER.clear();
+        GALAXY_MANAGER.clear();
 
-        DEFAULT_CONFIG = DatapackLoader.loadDefaultConfig();
+        // 一轮加载：校验必填 → 反序列化 → 子块过滤填充
+        Object2ObjectOpenHashMap<ResourceLocation, AbstractCelestialBodyData> celestialBodyBuffer = DatapackLoader.loadCelestialBodyData();
+        Object2ObjectOpenHashMap<ResourceLocation, GalaxyData> galaxyBuffer = DatapackLoader.loadGalaxyData();
 
-        DATAPACK_REGISTRY.addAll( DatapackLoader.loadDatapackSources() );
-        int datapackAmount = DATAPACK_REGISTRY.size();
+        // 二轮校验：引用合法性 / 字段交叉 / 复杂 type 规则，不通过的在这里被摘掉
+        celestialBodyBuffer = DatapackLoader.filterCelestialBodyData(celestialBodyBuffer);
+        galaxyBuffer = DatapackLoader.filterGalaxyData(galaxyBuffer, celestialBodyBuffer);
 
-        if ( DATAPACK_REGISTRY.isEmpty() ) {
-            getLogger().info("未检测到数据包 | No datapack detected");
-            return;
-        }
+        CELESTIAL_BODY_MANAGER.putAll(celestialBodyBuffer);
+        GALAXY_MANAGER.putAll(galaxyBuffer);
 
-        getLogger().info( "发现 {} 个数据包 | Found {} datapacks", datapackAmount, datapackAmount );
-
-        for ( DatapackSource datapack : DATAPACK_REGISTRY) {
-            Object2ObjectOpenHashMap<PropertyKey, AbstractSchematicProperty> properties = DatapackLoader.loadProperties(datapack);
-            Object2ObjectOpenHashMap<String, DefaultConfig> worldConfigs = DatapackLoader.loadWorldConfigs(datapack, DEFAULT_CONFIG);
-
-            PROPERTY_MANAGER.putAll(properties);
-            WORLDCONFIG_MANAGER.putAll(worldConfigs);
-        }
-
+        getLogger().info(
+                "空间数据加载完成：{} 个天体，{} 个星系 | space data loaded: {} celestial bodies, {} galaxies",
+                CELESTIAL_BODY_MANAGER.size(), GALAXY_MANAGER.size(),
+                CELESTIAL_BODY_MANAGER.size(), GALAXY_MANAGER.size()
+        );
     }
 
-    public PropertyQuery propertyQuery() {
-        return new PropertyQuery(PROPERTY_MANAGER);
+    public GalaxyQuery galaxyQuery() {
+        return new GalaxyQuery(GALAXY_MANAGER);
     }
-    public WorldConfigQuery worldConfigQuery() {
-        return new WorldConfigQuery(WORLDCONFIG_MANAGER);
+    public CelestialBodyQuery celestialBodyQuery() {
+        return new CelestialBodyQuery(CELESTIAL_BODY_MANAGER);
     }
 
 }
