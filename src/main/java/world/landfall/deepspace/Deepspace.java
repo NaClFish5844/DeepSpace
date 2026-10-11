@@ -4,6 +4,7 @@ import com.mojang.logging.LogUtils;
 import net.minecraft.core.registries.Registries;
 import net.minecraft.network.chat.Component;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.minecraft.world.item.CreativeModeTab;
 import net.neoforged.api.distmarker.Dist;
@@ -18,6 +19,7 @@ import net.neoforged.fml.event.lifecycle.FMLCommonSetupEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.neoforged.neoforge.event.BuildCreativeModeTabContentsEvent;
 import net.neoforged.neoforge.event.server.ServerStartingEvent;
+import net.neoforged.neoforge.event.server.ServerStoppingEvent;
 import net.neoforged.neoforge.registries.DeferredRegister;
 import org.jetbrains.annotations.NotNull;
 import org.slf4j.Logger;
@@ -36,9 +38,19 @@ import java.util.function.Supplier;
 @Mod(Deepspace.MODID)
 public class Deepspace {
     public static final String MODID = "deepspace";
+
+    /**
+     * 全局状态都挂在这里，但**不要直接访问** ——
+     * 业务代码统一走 {@link world.landfall.deepspace.util.AccessUtil} 的
+     * {@code getLogger()} / {@code getResourceManager()} / {@code getDatapackManager()}。
+     * <p>
+     * 如有需要，可在 {@code AccessUtil} 中自行添加访问器
+     */
     public static final Logger LOGGER = LogUtils.getLogger();
     @Nullable public static ResourceManager RESOURCE_MANAGER;
     public static final DatapackManager DATAPACK_MANAGER = DatapackManager.INSTANCE;
+    /** 当前服务端：启动时写入、停止时清空。取用请走 AccessUtil.getServer() 或 getNullableServer() */
+    @Nullable public static MinecraftServer SERVER;
 
 
     public static final DeferredRegister<CreativeModeTab> CREATIVE_MODE_TABS = DeferredRegister.create(Registries.CREATIVE_MODE_TAB, MODID);
@@ -133,7 +145,14 @@ public class Deepspace {
      */
     @SubscribeEvent
     public void onServerStarting(ServerStartingEvent event) {
+        SERVER = event.getServer();
         LOGGER.info("Deep Space mod server components initialized");
+    }
+
+    /** 服务端停下就把引用清掉，避免留下一个已经死掉的 server */
+    @SubscribeEvent
+    public void onServerStopping(ServerStoppingEvent event) {
+        SERVER = null;
     }
 
     // You can use EventBusSubscriber to automatically register all static methods in the class annotated with @SubscribeEvent

@@ -20,7 +20,8 @@ public class TeleporterData extends AbstractCelestialBodyData {
 
     @SerializedName("teleporter_type") private TeleporterType teleporterType;
     @SerializedName("teleport_distance") private int teleportDistance;
-    @SerializedName("size") private double size;
+    /** 模型的线性缩放倍数（不是尺寸 —— 传送点是单个数值，球状天体的 size 是 AABB 体积） */
+    @SerializedName("scale") private double scale;
 
     private TeleporterData() {
         super();
@@ -28,7 +29,7 @@ public class TeleporterData extends AbstractCelestialBodyData {
 
         this.teleporterType = TeleporterType.invalid;
         this.teleportDistance = 128;
-        this.size = 1.0D;
+        this.scale = 1.0D;
     }
     public static TeleporterData ofDefault() {
         return new TeleporterData();

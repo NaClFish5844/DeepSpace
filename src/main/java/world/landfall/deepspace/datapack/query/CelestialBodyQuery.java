@@ -5,6 +5,7 @@ import it.unimi.dsi.fastutil.objects.ObjectArrayList;
 import it.unimi.dsi.fastutil.objects.ObjectList;
 import net.minecraft.resources.ResourceLocation;
 import world.landfall.deepspace.datapack.spacedata.body.AbstractCelestialBodyData;
+import world.landfall.deepspace.datapack.spacedata.body.PlanetData;
 import world.landfall.deepspace.datapack.spacedata.body.ringworld.RingWorldBodyData;
 import world.landfall.deepspace.datapack.spacedata.body.ringworld.RingWorldSectionData;
 
@@ -15,8 +16,6 @@ import java.util.function.Predicate;
 
 /**
  * 天体的链式只读查询。
- * <p>
- * 每个 ofXxx 只是往 predicate 上追加条件，collect() 才真正遍历一次 source。
  */
 public class CelestialBodyQuery {
     private final Object2ObjectOpenHashMap<ResourceLocation, AbstractCelestialBodyData> source;
@@ -74,6 +73,20 @@ public class CelestialBodyQuery {
         return (source.get(bodyId) instanceof RingWorldBodyData body) ? body : null;
     }
 
+    /**
+     * 只留「表面落在某个维度里」的天体 —— 行星与环世界区段。
+     * <p>
+     * 只有这两类自带 dimension 字段：恒星、传送点、环世界体都不指代任何维度，所以按维度查的时候
+     * 天然被排除在外。这是「从维度反查天体」的唯一入口（旧链路里对应 getPlanetByDimension）。
+     */
+    public CelestialBodyQuery ofDimension(String dimension) {
+        predicate = predicate.and(data -> Objects.equals(dimensionOf(data), dimension));
+        return this;
+    }
+    public CelestialBodyQuery ofDimension(ResourceLocation dimension) {
+        return (dimension == null) ? this : ofDimension(dimension.toString());
+    }
+
     @Nullable public AbstractCelestialBodyData get(ResourceLocation resourceLocation) {
         return source.get(resourceLocation);
     }
@@ -84,5 +97,12 @@ public class CelestialBodyQuery {
             if ( predicate.test(entry.getValue()) ) { result.put(entry.getKey(), entry.getValue()); }
         }
         return result;
+    }
+
+    /** 天体指代的维度；只有行星与环世界区段有，其余返回 null（null 永远不会等于任何维度名） */
+    @Nullable private static String dimensionOf(AbstractCelestialBodyData data) {
+        if (data instanceof PlanetData planet) { return planet.getDimension(); }
+        if (data instanceof RingWorldSectionData section) { return section.getDimension(); }
+        return null;
     }
 }

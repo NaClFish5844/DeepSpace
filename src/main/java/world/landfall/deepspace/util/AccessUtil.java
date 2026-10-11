@@ -1,5 +1,6 @@
 package world.landfall.deepspace.util;
 
+import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.packs.resources.ResourceManager;
 import net.neoforged.fml.loading.FMLPaths;
 import org.slf4j.Logger;
@@ -19,6 +20,7 @@ public final class AccessUtil {
     public static String getBodyRoot() { return "bodies"; }
     public static String getGalaxyRoot() { return "galaxies"; }
     public static String getRingWorldRoot() { return "ringworlds"; }
+    public static String getHyperlaneRoot() { return "hyperlane"; }
 
     public static void setResourceManager(@Nullable ResourceManager manager) {
         Deepspace.RESOURCE_MANAGER = manager;
@@ -31,5 +33,15 @@ public final class AccessUtil {
     }
     public static DatapackManager getDatapackManager() {
         return Deepspace.DATAPACK_MANAGER;
+    }
+
+    public static MinecraftServer getServer() {
+        if ( Deepspace.SERVER == null ) {
+            throw new IllegalStateException("服务端未就绪：在服务端启动之前访问了它");
+        }
+        return Deepspace.SERVER;
+    }
+    @Nullable public static MinecraftServer getNullableServer() {
+        return Deepspace.SERVER;
     }
 }

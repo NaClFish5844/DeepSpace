@@ -1,4 +1,4 @@
-package world.landfall.deepspace.datapack;
+package world.landfall.deepspace.datapack.load;
 
 import com.google.gson.JsonElement;
 import net.minecraft.resources.FileToIdConverter;
@@ -33,6 +33,10 @@ public final class DatapackProvider {
     public static Map<ResourceLocation, ProvidedJson> getEffectiveSpaceData() {
         return getAllSpaceData().entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey, entry -> entry.getValue().getLast()));
+    }  
+    /** 超空间航道全量源（加载用）：此类数据不应当丢弃，而是全部合并 */
+    public static Map<ResourceLocation, List<ProvidedJson>> getAllHyperlaneData() {
+        return new HashMap<>(readRoot(getHyperlaneRoot()));
     }
     /** 读一个根分类下的全部来源 */
     private static Map<ResourceLocation, List<ProvidedJson>> readRoot(String root) {

@@ -1,13 +1,13 @@
 package world.landfall.deepspace.datapack.spacedata.body;
 
 import com.google.gson.annotations.SerializedName;
+import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
+import it.unimi.dsi.fastutil.objects.ObjectArrayList;
+import it.unimi.dsi.fastutil.objects.ObjectList;
 import lombok.Getter;
 import lombok.Setter;
-import org.joml.Vector2i;
-import org.joml.Vector3d;
+import org.joml.Vector2d;
 import world.landfall.deepspace.datapack.spacedata.OrbiterData;
-
-import java.util.ArrayList;
 
 /**
  * 行星：可以登陆的天体。
@@ -17,7 +17,7 @@ import java.util.ArrayList;
  *   landingArea —— 表面维度里的可用矩形，用于「映射」（落到哪 / 从哪飞出来）
  */
 @Getter @Setter
-public class PlanetData extends AbstractCelestialBodyData {
+public class PlanetData extends AbstractSphereCelestialBody {
     public enum DecorationType {
         atmosphere,
         rings,
@@ -42,34 +42,33 @@ public class PlanetData extends AbstractCelestialBodyData {
         }
     }
 
-    @SerializedName("size") private Vector3d size;
     @SerializedName("dimension") private String dimension;
-    @SerializedName("landing_area") private Vector2i landingArea;
-    @SerializedName("description") private String description;
-    @SerializedName("texture") private String texture;
-    @SerializedName("textures") private ArrayList<String> textures;
+    @SerializedName("landing_area") private Vector2d landingArea;
     @SerializedName("space_height") private int spaceHeight;
     @SerializedName("reentry_height") private int reentryHeight;
+    @SerializedName("texture") private String texture;
+    @SerializedName("textures") private ObjectList<String> textures;
     @SerializedName("texture_generation_detail") private String textureGenerationDetail;
 
-    @SerializedName("decorations") private ArrayList<DecorationData> decorations;
-    @SerializedName("moons") private ArrayList<OrbiterData> moons;
+    @SerializedName("decorations") private ObjectList<DecorationData> decorations;
+    // *不要*去掉 transient
+    // 这东西在json里是数组 不能直接GSON反序列化
+    @SerializedName("moons") private transient Object2ObjectOpenHashMap<Integer, OrbiterData> moons;
 
     private PlanetData() {
         super();
         setType(CelestialBodyType.planet);
 
         this.dimension = "";
-        this.landingArea = new Vector2i(2000, 2000);
-        this.description = "";
+        this.landingArea = new Vector2d(2000.0D, 2000.0D);
         this.texture = "";
-        this.textures = new ArrayList<>();
+        this.textures = new ObjectArrayList<>();
         this.spaceHeight = 550;
         this.reentryHeight = 400;
         this.textureGenerationDetail = "";
 
-        this.decorations = new ArrayList<>();
-        this.moons = new ArrayList<>();
+        this.decorations = new ObjectArrayList<>();
+        this.moons = new Object2ObjectOpenHashMap<>();
     }
     public static PlanetData ofDefault() {
         return new PlanetData();

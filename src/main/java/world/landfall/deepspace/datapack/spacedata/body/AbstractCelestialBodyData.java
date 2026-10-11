@@ -26,12 +26,12 @@ public abstract class AbstractCelestialBodyData {
     }
 
     @SerializedName("name") private String name;
-    @SerializedName("id") private String id;
+   @Deprecated @SerializedName("id") private String id;
     @SerializedName("type") private CelestialBodyType type;
 
     private transient String packName;
-    /** 完整身份（文件位置，如 deepspace:alpha/sol）；id 只是短名。加载时注入，不参与 JSON */
     private transient ResourceLocation dataId;
+    private transient boolean isGenerated;
 
     protected AbstractCelestialBodyData() {
         this.name = "";

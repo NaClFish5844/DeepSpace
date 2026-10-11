@@ -8,6 +8,7 @@ import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.fml.common.EventBusSubscriber;
 import net.neoforged.neoforge.event.AddReloadListenerEvent;
 import world.landfall.deepspace.Deepspace;
+import world.landfall.deepspace.datapack.load.DatapackProvider;
 
 import java.util.List;
 import java.util.Map;

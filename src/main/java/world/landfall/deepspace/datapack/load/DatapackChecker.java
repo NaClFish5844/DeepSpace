@@ -1,22 +1,21 @@
-package world.landfall.deepspace.datapack;
+package world.landfall.deepspace.datapack.load;
 
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
-import com.google.gson.annotations.SerializedName;
 import it.unimi.dsi.fastutil.objects.Object2ObjectOpenHashMap;
 import net.minecraft.resources.ResourceLocation;
-import world.landfall.deepspace.datapack.spacedata.GalaxyData;
-import world.landfall.deepspace.datapack.spacedata.GalaxyTeleporterData;
+import world.landfall.deepspace.datapack.spacedata.galaxy.GalaxyData;
 import world.landfall.deepspace.datapack.spacedata.OrbiterData;
 import world.landfall.deepspace.datapack.spacedata.body.AbstractCelestialBodyData;
 import world.landfall.deepspace.datapack.spacedata.body.PlanetData;
 import world.landfall.deepspace.datapack.spacedata.body.StarData;
 import world.landfall.deepspace.datapack.spacedata.body.TeleporterData;
 import world.landfall.deepspace.datapack.spacedata.body.ringworld.RingWorldBodyData;
-import world.landfall.deepspace.datapack.spacedata.body.ringworld.RingWorldSectionData;
+import world.landfall.deepspace.datapack.spacedata.body.ringworld.RingWorldBodyData.RingWorldScale;
+import world.landfall.deepspace.datapack.spacedata.hyperlane.HyperlaneData;
+import world.landfall.deepspace.datapack.spacedata.hyperlane.HyperlanePoint;
 
 import javax.annotation.Nullable;
-import java.lang.reflect.Field;
 import java.util.*;
 
 import static world.landfall.deepspace.util.AccessUtil.*;
@@ -43,50 +42,29 @@ public final class DatapackChecker {
     }
 
     private static final Map<FileType, Set<String>> FILE_REQUIRED_KEYS = Map.of(
-            FileType.star,               Set.of("name", "id", "type", "size", "hurt_radius"),
-            FileType.planet,             Set.of("name", "id", "type", "size", "dimension", "landing_area", "space_height", "reentry_height"),
-            FileType.teleporter,         Set.of("name", "id", "type", "size", "teleporter_type", "teleport_distance"),
-            FileType.ring_world,         Set.of("name", "id", "type", "scale", "orbit_radius"),
-            FileType.ring_world_section, Set.of("name", "id", "type", "index", "dimension", "healthy", "repairable", "space_height", "reentry_height"),
+            FileType.star,               Set.of("name", "type", "size", "hurt_radius"),
+            FileType.planet,             Set.of("name", "type", "size", "dimension", "landing_area", "space_height", "reentry_height"),
+            FileType.teleporter,         Set.of("name", "type", "scale", "teleporter_type", "teleport_distance"),
+            FileType.ring_world,         Set.of("name", "type", "scale", "orbit_radius"),
+            FileType.ring_world_section, Set.of("name", "type", "index", "dimension", "healthy", "repairable", "space_height", "reentry_height"),
             FileType.galaxy,             Set.of("type", "dimension", "name", "mass_center")
     );
-    private static final Map<FileType, Set<String>> FILE_ALLOWED_KEYS = Map.of(
-            FileType.star,               getAllKeyNames(StarData.class),
-            FileType.planet,             getAllKeyNames(PlanetData.class),
-            FileType.teleporter,         getAllKeyNames(TeleporterData.class),
-            FileType.ring_world,         getAllKeyNames(RingWorldBodyData.class),
-            FileType.ring_world_section, getAllKeyNames(RingWorldSectionData.class),
-            FileType.galaxy,             getAllKeyNames(GalaxyData.class)
-    );
     private static final Map<String, Set<String>> ORBITER_REQUIRED_KEYS = Map.of(
-            "central_bodies", Set.of("body", "offset"),
-            "orbiters",       Set.of("body", "offset"),
-            "moons",          Set.of("body", "offset"),
-            "teleporters",    Set.of("body", "offset"),
+            "central_bodies", Set.of("id", "body", "offset"),
+            "orbiters",       Set.of("id", "body", "offset"),
+            "moons",          Set.of("id", "body", "offset"),
+            "teleporters",    Set.of("id", "body", "offset"),
             "decorations",    Set.of("type", "scale")
     );
     /** 子块数组 → 允许引用的目标数据类。环绕物引用的是「对象」，所以按类判而不是按 type 字符串判 */
     private static final Map<String, Set<Class<?>>> ORBITER_VALID_TYPES = Map.of(
             "central_bodies", Set.of(StarData.class, PlanetData.class),
-            "orbiters",       Set.of(PlanetData.class, RingWorldBodyData.class),
-            "moons",          Set.of(PlanetData.class),      // 卫星就是 PlanetData，moon 是位置不是类型
+            "orbiters",       Set.of(StarData.class, PlanetData.class, RingWorldBodyData.class),
+            "moons",          Set.of(StarData.class, PlanetData.class, RingWorldBodyData.class),
             "teleporters",    Set.of(TeleporterData.class)
     );
-    private static Set<String> getAllKeyNames(Class<?> dataClass) {
-        Set<String> keys = new HashSet<>();
 
-        for (Field field : dataClass.getDeclaredFields()) {
-            if ( java.lang.reflect.Modifier.isStatic(field.getModifiers()) ) { continue; }
-            if ( java.lang.reflect.Modifier.isTransient(field.getModifiers()) ) { continue; }
-            if ( field.isSynthetic() ) { continue; }
-
-            SerializedName name = field.getAnnotation(SerializedName.class);
-            keys.add(name == null ? field.getName() : name.value());
-        }
-        return keys;
-    }
-
-    // 取文件
+    // 取天体和星系文件
     public static ParsedJson parseFileType(ResourceLocation id, DatapackProvider.ProvidedJson providedJson) {
         JsonElement json = providedJson.json();
         if (json == null || !json.isJsonObject()) { return new ParsedJson(id, FileType.invalid, null); }
@@ -147,79 +125,150 @@ public final class DatapackChecker {
         }
         return pass;
     }
+    /**
+     * 取出某个方向的全部边并逐条校验，不合法的直接丢掉。
+     *
+     * @param direction 三个列表的键名：bidirectional_links / unidirectional_links / random_links
+     */
+    public static List<JsonObject> filterHyperlane(String direction, JsonObject root) {
+        if (root == null) { return List.of(); }
 
-    // 二轮校验
-    public static boolean checkReference(OrbiterData orbiter, Object2ObjectOpenHashMap<ResourceLocation, AbstractCelestialBodyData> bodies) {
-        ResourceLocation target = orbiter.getResourceLocation();
-        return target != null && bodies.containsKey(target);
+        JsonElement element = root.get(direction);
+        if (element == null || ! element.isJsonArray()) { return List.of(); }
+
+        List<JsonObject> result = new ArrayList<>();
+
+        for (JsonElement item : element.getAsJsonArray()) {
+            if ( ! item.isJsonObject() ) { continue; }
+
+            JsonObject edge = item.getAsJsonObject();
+            if ( checkHyperlaneEdge(direction, edge) ) { result.add(edge); }
+            else { getLogger().warn("非法的超空间航道，已丢弃：{} | invalid hyperlane edge dropped", edge); }
+        }
+        return result;
     }
-    public static boolean checkOrbiterType(String arrayKey, OrbiterData orbiter, Object2ObjectOpenHashMap<ResourceLocation, AbstractCelestialBodyData> bodies) {
+    /**
+     * 一条边是否合法。
+     * <p>
+     * 键名按方向不同：双向是 point_a / point_b，单向是 from / to，
+     * 随机连接的端点直接写在对象本身（没有终点）。
+     */
+    private static boolean checkHyperlaneEdge(String direction, JsonObject edge) {
+        boolean isRandom      = "random_links".equals(direction);
+        boolean bidirectional = "bidirectional_links".equals(direction);
+
+        if (isRandom) {
+            if ( ! isString("galaxy_dimension", edge.get("galaxy_dimension")) ) { return false; }
+        } else if ( ! isObject(edge.get(bidirectional ? "point_a" : "from")) ) {
+            return false;
+        }
+
+        return isRandom || isObject(edge.get(bidirectional ? "point_b" : "to"));
+    }
+
+
+    // 二轮校验：交叉引用的规则没法只看当前文件，所以直接查 Manager 的查询器
+    public static boolean checkReference(OrbiterData orbiter) {
+        ResourceLocation target = orbiter.getResourceLocation();
+        if (target == null) { return false; }
+
+        return getDatapackManager().celestialBodyQuery().get(target) != null;
+    }
+    /**
+     *  某个环绕的地方只支持某几种类型的天体
+     *  <p>
+     *  比如 传送点显然不能是行星 恒星 星环
+     *  <p>
+     *  而中心天体显然不可以是星环
+     */
+    public static boolean checkOrbiterType(String arrayKey, OrbiterData orbiter) {
         Set<Class<?>> allowed = ORBITER_VALID_TYPES.get(arrayKey);
         if (allowed == null) { return true; }
 
-        AbstractCelestialBodyData target = bodies.get(orbiter.getResourceLocation());
+        ResourceLocation target = orbiter.getResourceLocation();
         if (target == null) { return false; }
 
+        AbstractCelestialBodyData body = getDatapackManager().celestialBodyQuery().get(target);
+        if (body == null) { return false; }
+
         for (Class<?> type : allowed) {
-            if ( type.isInstance(target) ) { return true; }
+            if ( type.isInstance(body) ) { return true; }
+        }
+        return false;
+    }
+    /**
+     * 适用于所有「环绕关系」，包括恒星系的星系轨道和行星的卫星轨道。
+     * <p>
+     * 环绕天体不允许同时存在星环和星球，且每种规模的星环最多一个。
+     * 优先级：星环 &gt; 星球/恒星 —— 一旦出现星环，非环的全部丢掉。
+     * <p>
+     * @return 过滤后的新集合，不修改入参
+     */
+    public static Object2ObjectOpenHashMap<Integer, OrbiterData> filterExclusiveOrbiters(Object2ObjectOpenHashMap<Integer, OrbiterData> orbiters) {
+        Object2ObjectOpenHashMap<Integer, OrbiterData> kept = new Object2ObjectOpenHashMap<>();
+        if (orbiters == null || orbiters.isEmpty()) { return kept; }
+
+        // ① 分拣：顺路把「是不是环、什么规模」写进 orbiter —— isRing() / getRingScale() 靠它
+        Object2ObjectOpenHashMap<Integer, OrbiterData> rings  = new Object2ObjectOpenHashMap<>();
+        Object2ObjectOpenHashMap<Integer, OrbiterData> others = new Object2ObjectOpenHashMap<>();
+
+        for (Map.Entry<Integer, OrbiterData> entry : orbiters.entrySet()) {
+            if ( markRingScale(entry.getValue()) ) { rings.put(entry.getKey(), entry.getValue()); }
+            else { others.put(entry.getKey(), entry.getValue()); }
+        }
+
+        // ② 星环优先：没有环就全是星球或恒星
+        if ( rings.isEmpty() ) { return others; }
+
+        // ③ 有环则非环的全丢，且每种规模的环最多留一个
+        Set<RingWorldScale> seenScales = new HashSet<>();
+        for (Map.Entry<Integer, OrbiterData> entry : rings.entrySet()) {
+            if ( seenScales.add(entry.getValue().getRingScale()) ) { kept.put(entry.getKey(), entry.getValue()); }
+        }
+        return kept;
+    }
+    /**
+     * 一条连接是否成立：两个端点都得落在真实存在的信标上，且不能自己连自己。
+     * <p>
+     * 随机连接没有终点，所以只查起点 —— "自己连自己"也就无从谈起。
+     */
+    public static boolean checkHyperLaneData(HyperlaneData hyperlaneData) {
+        HyperlanePoint from = hyperlaneData.getFrom();
+        if ( ! pointExists(from) ) { return false; }
+
+        HyperlanePoint to = hyperlaneData.getTo();
+        if (to == null) { return true; }
+
+        return pointExists(to) && ! from.equals(to);
+    }
+    private static boolean pointExists(HyperlanePoint point) {
+        if (point == null) { return false; }
+
+        ResourceLocation dimension = point.getGalaxyId();
+        if (dimension == null) { return false; }
+
+        Map<ResourceLocation, GalaxyData> matched = getDatapackManager().galaxyQuery()
+                .ofDimension(dimension)
+                .collect();
+        if ( matched.isEmpty() ) { return false; }
+
+        // teleporters 以信标 id 为键，所以直接查键即可
+        return matched.values().iterator().next().getTeleporters().containsKey(point.teleporterID());
+    }
+    private static boolean markRingScale(OrbiterData orbiter) {
+        ResourceLocation target = orbiter.getResourceLocation();
+        if (target == null) { return false; }
+
+        if ( getDatapackManager().celestialBodyQuery().get(target) instanceof RingWorldBodyData ring ) {
+            orbiter.setRingScale(ring.getScale());
+            return true;
         }
         return false;
     }
 
-    /**
-     * 星系内的环世界规则：环绕天体不允许同时存在星环和星球，且每种规模的星环最多一个。
-     * <p>
-     * 需要环世界体表才能判（规模写在环体里），而环世界体还没进内存，暂时放行。
-     */
-    public static boolean checkGalaxyOrbiter(GalaxyData galaxy) {
-        // 一个星系内的环绕天体不允许同时存在星环和星球
-        // 并且每种规模的星环最多只能存在一种
-        return true;
+    private static boolean isObject(@Nullable JsonElement element) {
+        return element != null && element.isJsonObject();
     }
-
-    /**
-     * 传送点的特殊校验。
-     * <p>
-     * 「中继器必须成对」不在这里判 —— 那要等全部星系的传送点都筛完才能统一看，见 checkTeleporterPair。
-     *
-     * @param selfDimension 传送点自己所在星系的维度：不能把传送点指向自己
-     * @param dimensions    MC 里真实存在的维度集合：传送目标必须落在其中
-     */
-    public static boolean checkGalaxyTeleporter(GalaxyTeleporterData teleporter, Object2ObjectOpenHashMap<ResourceLocation, AbstractCelestialBodyData> bodies, Object2ObjectOpenHashMap<ResourceLocation, GalaxyData> galaxies, String selfDimension, Set<ResourceLocation> dimensions) {
-        // ① 必须写明指代维度，而且是个真实存在的维度
-        ResourceLocation dimension = teleporter.getDimensionId();
-        if (dimension == null || ! dimensions.contains(dimension)) { return false; }
-
-        // ② 不能指向自己所在的星系
-        if ( dimension.toString().equals(selfDimension) ) { return false; }
-
-        // ③ 引用的传送点天体必须存在，而且确实是个传送点
-        if ( ! (bodies.get(teleporter.getResourceLocation()) instanceof TeleporterData) ) { return false; }
-
-        // ④ 指向的星系必须存在
-        for (GalaxyData candidate : galaxies.values()) {
-            if ( dimension.toString().equals(candidate.getDimension()) ) { return true; }
-        }
-        return false;
-    }
-    public static boolean checkTeleporterPair(Object2ObjectOpenHashMap<ResourceLocation, GalaxyData> galaxies) {
-
-    }
-    public static boolean checkBigger(Number smaller, Number bigger) {
-        return smaller.doubleValue() < bigger.doubleValue();
-    }
-
-    
-
-    // 需要一个静默路径？
-    // 实际上 sablespawner里也遇到过类似的情况 最后被忽略了
-    private static boolean isStringElement(JsonElement element) {
-        return element != null && element.isJsonPrimitive() && element.getAsJsonPrimitive().isString();
-    }
-    private static boolean isNumberElement(JsonElement element) {
-        return element != null && element.isJsonPrimitive() && element.getAsJsonPrimitive().isNumber();
-    }
-
     public static boolean checkStringInEnum( String key, JsonObject root, Class< ? extends Enum<?> > enumClass ) {
         JsonElement element = root.get(key);
 
@@ -235,24 +284,6 @@ public final class DatapackChecker {
         }
 
         return true;
-    }
-    public static boolean checkDimensionKey( String key, JsonObject root ) {
-        JsonElement element = root.get(key);
-        if ( !isString(key, element) ) { return false; }
-        if ( ResourceLocation.tryParse( element.getAsString() ) == null ) {
-            getLogger().warn("[{}] 不是合法的维度标识（应为 namespace:dim，如 deepspace:space） | [{}] invalid dimension id (expected namespace:dim, e.g. deepspace:space)", key, key);
-            return false;
-        }
-        return true;
-    }
-    public static Set<String> extractStringArrList(JsonElement element ) {
-        if ( element == null || !element.isJsonArray() ) { return new HashSet<>(); }
-
-        Set<String> set = new HashSet<>();
-        for (JsonElement e : element.getAsJsonArray()) {
-            if ( e.isJsonPrimitive() && e.getAsJsonPrimitive().isString() ) { set.add(e.getAsString()); }
-        }
-        return set;
     }
 
     public static boolean isNumber( String key, JsonElement element ) {

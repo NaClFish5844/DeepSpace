@@ -21,6 +21,7 @@ import java.util.zip.ZipFile;
 import static world.landfall.deepspace.util.AccessUtil.*;
 
 public final class FileIOUtil {
+    private FileIOUtil() {}
 
     public static <T> T readFile(Path path, Function<InputStream, T> reader) {
         try ( InputStream stream = Files.newInputStream(path) ) {

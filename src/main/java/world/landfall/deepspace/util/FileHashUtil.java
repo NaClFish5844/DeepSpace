@@ -15,6 +15,7 @@ import java.util.HexFormat;
 import static world.landfall.deepspace.util.AccessUtil.*;
 
 public final class FileHashUtil {
+    private FileHashUtil() {}
 
     public static String getFileMD5(Path path) {
         try ( InputStream stream = Files.newInputStream(path) ) {
